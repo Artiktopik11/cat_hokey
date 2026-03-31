@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>CAT HOCKEY — ЖОСКО ФОНК 🍑💥</title>
+    <style>
+        * {
+            user-select: none;
+            touch-action: manipulation;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a2f3a 0%, #041a21 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', 'Quicksand', sans-serif;
+            padding: 20px;
+            transition: all 0.05s cubic-bezier(0.1, 1.5, 0.3, 1);
+        }
+
+        /* Жоская тряска от баса */
+        body.shake {
+            animation: hardShake 0.08s infinite;
+        }
+
+        @keyframes hardShake {
+            0% { transform: translate(2px, 1px); }
+            25% { transform: translate(-1px, -1px); }
+            50% { transform: translate(-2px, 2px); }
+            75% { transform: translate(1px, -2px); }
+            100% { transform: translate(1px, 1px); }
+        }
+
+        /* Эквалайзер под фонк */
+        .visualizer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(4px);
+            display: flex;
+            gap: 3px;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            pointer-events: none;
+        }
+
+        .visualizer-bar {
+            width: 6px;
+            height: 8px;
+            background: #ffd966;
+            border-radius: 4px;
+            transition: height 0.05s ease;
+        }
+
+        .main-menu, .game-container {
+            background: linear-gradient(145deg, #1e5a6e, #124252);
+            border-radius: 64px;
+            padding: 30px 25px;
+            max-width: 1000px;
+            width: 100%;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.5), inset 0 1px 2px rgba(255,255,255,0.1);
+            position: relative;
+            z-index: 2;
+            animation: menuPulse 2s infinite;
+        }
+
+        @keyframes menuPulse {
+            0% { box-shadow: 0 0 0 0 #ffb34755; }
+            50% { box-shadow: 0 0 0 15px #ffb34722; }
+            100% { box-shadow: 0 0 0 0 #ffb34755; }
+        }
+
+        .game-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #ffd966;
+            text-shadow: 3px 3px 0 #b45f1b;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .mode-btn {
+            background: linear-gradient(135deg, #f9b43a, #fb8c00);
+            border: none;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 12px 24px;
+            border-radius: 60px;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #b45f1b;
+            transition: 0.03s linear;
+        }
+
+        .mode-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #b45f1b;
+        }
+
+        /* Кнопка фонка */
+        .fonk-btn {
+            background: linear-gradient(135deg, #2c2c2c, #111);
+            color: #ffb347;
+            border: 2px solid #ffb347;
+            padding: 10px 20px;
+            border-radius: 60px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.05s linear;
+            animation: btnBass 1s infinite;
+        }
+
+        @keyframes btnBass {
+            0% { text-shadow: 0 0 2px #ffb347; }
+            50% { text-shadow: 0 0 12px #ffb347; transform: scale(1.02);}
+            100% { text-shadow: 0 0 2px #ffb347; }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        canvas {
+            display: block;
+            margin: 0 auto;
+            border-radius: 32px;
+            background: #d9f0f7;
+            width: 100%;
+            height: auto;
+        }
+
+        .stats-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+            background: #0d2f3bcc;
+            padding: 12px 20px;
+            border-radius: 60px;
+            color: white;
+        }
+
+        .back-btn {
+            background: #6c757d;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 40px;
+            color: white;
+            cursor: pointer;
+        }
+
+        @media (max-width: 600px) {
+            .mode-btn { font-size: 0.8rem; padding: 8px 16px; }
+            .game-title { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Визуализатор фонка -->
+    <div class="visualizer" id="visualizer"></div>
+
+    <div id="mainMenu" class="main-menu">
+        <div class="game-title">🏒 CAT HOCKEY — ФОНК ЭДИШН 🎧🍑</div>
+        <div class="game-sub" style="text-align:center; margin:10px 0;">👇 ЖМИ НА КНОПКУ — ПОЧУВСТВУЙ БАС 👇</div>
+        
+        <div class="menu-buttons">
+            <button class="mode-btn" data-mode="1v1">1v1</button>
+            <button class="mode-btn" data-mode="1v2">1v2</button>
+            <button class="mode-btn" data-mode="training">ТРЕНИРОВКА</button>
+            <button class="fonk-btn" id="fonkControlBtn">🔊 ФОНК: ВКЛ</button>
+        </div>
+
+        <div class="skins-section" style="background:#0d3b48cc; border-radius:40px; padding:15px; margin-top:20px;">
+            <div class="skins-title">😺 КОТИКИ</div>
+            <div class="skins-grid" style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                <div class="skin-card" data-skin="🐱" style="background:#1f5f6e; border-radius:30px; padding:8px 16px; cursor:pointer;">🐱 Рыжик</div>
+                <div class="skin-card" data-skin="😺" style="background:#1f5f6e; border-radius:30px; padding:8px 16px; cursor:pointer;">😺 Снежок</div>
+                <div class="skin-card" data-skin="😸" style="background:#1f5f6e; border-radius:30px; padding:8px 16px; cursor:pointer;">😸 Тигрик</div>
+                <div class="skin-card" data-skin="🦁" style="background:#1f5f6e; border-radius:30px; padding:8px 16px; cursor:pointer;">🦁 Лев</div>
+            </div>
+        </div>
+
+        <div class="elo-preview" style="background:#00000066; border-radius:40px; padding:12px; text-align:center; margin-top:20px;">
+            🏆 ТВОЙ РЕЙТИНГ: <span id="menuElo">1200</span>
+        </div>
+    </div>
+
+    <div id="gameContainer" class="game-container hidden">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div class="stats-panel">
+            <button id="backToMenuBtn" class="back-btn">🏠 МЕНЮ</button>
+            <span>🐱 <span id="playerScore">0</span> : <span id="enemyScore">0</span> 🤖</span>
+            <button id="resetMatchBtn" class="back-btn" style="background:#ffb347;">🔄 СБРОС</button>
+        </div>
+    </div>
+
+    <script>
+        // ========== ТВОЙ ЖОСКИЙ ФОНК (прямая ссылка с GitHub) ==========
+        // Это твой настоящий файл 033109582300.mp3 из репозитория
+        const fonkAudio = new Audio('033109582300.mp3');
+        fonkAudio.loop = true;
+        fonkAudio.volume = 0.7;
+        
+        let fonkEnabled = true;
+        
+        // Эффект вибрации/тряски под фонк
+        let shakeInterval = null;
+        let visualizerInterval = null;
+        
+        function startVisualizer() {
+            const container = document.getElementById('visualizer');
+            container.innerHTML = '';
+            for (let i = 0; i < 30; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'visualizer-bar';
+                container.appendChild(bar);
+            }
+            
+            if (visualizerInterval) clearInterval(visualizerInterval);
+            visualizerInterval = setInterval(() => {
+                if (!fonkEnabled || fonkAudio.paused) return;
+                const bars = document.querySelectorAll('.visualizer-bar');
+                bars.forEach(bar => {
+                    const randomHeight = Math.random() * 25 + 5;
+                    bar.style.height = randomHeight + 'px';
+                });
+            }, 80);
+        }
+        
+        function startShake() {
+            if (shakeInterval) clearInterval(shakeInterval);
+            shakeInterval = setInterval(() => {
+                if (!fonkEnabled || fonkAudio.paused) {
+                    document.body.classList.remove('shake');
+                    return;
+                }
+                // Рандомная тряска под бит
+                if (Math.random() > 0.6) {
+                    document.body.classList.add('shake');
+                    setTimeout(() => document.body.classList.remove('shake'), 80);
+                }
+            }, 120);
+        }
+        
+        function toggleFonk() {
+            const btn = document.getElementById('fonkControlBtn');
+            if (fonkEnabled) {
+                fonkAudio.pause();
+                fonkEnabled = false;
+                btn.innerHTML = '🔇 ФОНК: ВЫКЛ';
+                btn.style.background = '#444';
+                document.body.classList.remove('shake');
+            } else {
+                fonkAudio.play().catch(e => console.log('Автоплей заблокирован, нужно взаимодействие'));
+                fonkEnabled = true;
+                btn.innerHTML = '🔊 ФОНК: ВКЛ';
+                btn.style.background = 'linear-gradient(135deg, #2c2c2c, #111)';
+            }
+        }
+        
+        // Запуск фона при первом взаимодействии с игрой (из-за политики автоплея)
+        function enableAudioOnFirstClick() {
+            if (fonkEnabled && fonkAudio.paused) {
+                fonkAudio.play().catch(e => console.log('Жди клика'));
+            }
+            document.removeEventListener('click', enableAudioOnFirstClick);
+            document.removeEventListener('touchstart', enableAudioOnFirstClick);
+        }
+        
+        document.addEventListener('click', enableAudioOnFirstClick);
+        document.addEventListener('touchstart', enableAudioOnFirstClick);
+        
+        // ========== ОСТАЛЬНАЯ ИГРОВАЯ ЛОГИКА (базовая) ==========
+        let currentMode = '1v1';
+        let selectedSkin = '🐱';
+        let currentElo = 1200;
+        let gameActive = true;
+        let playerGoals = 0;
+        let enemyGoals = 0;
+        let playerCats = [{ x: 365, y: 450, w: 70, h: 26 }];
+        let enemyCats = [{ x: 365, y: 25, w: 70, h: 26 }];
+        let puck = { x: 400, y: 250, vx: 2, vy: -2, r: 10 };
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const CW = 800, CH = 500;
+        canvas.width = CW;
+        canvas.height = CH;
+        
+        function setupMode() {
+            // Упрощённая настройка
+        }
+        
+        function handleMove(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            let canvasX = (clientX - rect.left) * (CW / rect.width);
+            canvasX = Math.min(Math.max(canvasX, 20), CW - 70 - 20);
+            playerCats[0].x = canvasX;
+        }
+        
+        function updateGame() {
+            if (!gameActive) return;
+            puck.x += puck.vx;
+            puck.y += puck.vy;
+            if (puck.x - puck.r <= 0 || puck.x + puck.r >= CW) puck.vx = -puck.vx;
+            if (puck.y - puck.r <= 0) puck.vy = Math.abs(puck.vy);
+            if (puck.y + puck.r >= CH - 15) {
+                enemyGoals++;
+                updateScores();
+                resetPuck();
+            }
+            if (puck.y - puck.r <= 15) {
+                playerGoals++;
+                updateScores();
+                resetPuck();
+            }
+            // Столкновение с игроком
+            const player = playerCats[0];
+            if (puck.y + puck.r >= player.y && puck.y - puck.r <= player.y + player.h &&
+                puck.x + puck.r >= player.x && puck.x - puck.r <= player.x + player.w) {
+                let angle = ((puck.x - player.x) / player.w - 0.5) * 1.8;
+                let speed = Math.hypot(puck.vx, puck.vy) * 1.1;
+                puck.vx = Math.cos(angle) * speed;
+                puck.vy = -Math.abs(Math.sin(angle) * speed);
+                puck.y = player.y - puck.r - 1;
+            }
+            // ИИ врага
+            const enemy = enemyCats[0];
+            let targetX = puck.x - 35;
+            targetX = Math.min(Math.max(targetX, 10), CW - 70 - 10);
+            enemy.x += (targetX - enemy.x) * 0.1;
+            if (puck.y - puck.r <= enemy.y + enemy.h && puck.y + puck.r >= enemy.y &&
+                puck.x + puck.r >= enemy.x && puck.x - puck.r <= enemy.x + enemy.w) {
+                let angle = ((puck.x - enemy.x) / enemy.w - 0.5) * 1.6;
+                let speed = Math.hypot(puck.vx, puck.vy) * 1.05;
+                puck.vx = Math.cos(angle) * speed;
+                puck.vy = Math.abs(Math.sin(angle) * speed);
+                puck.y = enemy.y + enemy.h + puck.r + 1;
+            }
+        }
+        
+        function resetPuck() {
+            puck = { x: CW/2, y: CH/2, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 3, r: 10 };
+        }
+        
+        function updateScores() {
+            document.getElementById('playerScore').innerText = playerGoals;
+            document.getElementById('enemyScore').innerText = enemyGoals;
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, CW, CH);
+            ctx.fillStyle = '#b9e6f5';
+            ctx.fillRect(0, 0, CW, CH);
+            // Игрок
+            ctx.fillStyle = '#5f9ea0';
+            ctx.fillRect(playerCats[0].x, playerCats[0].y, 70, 26);
+            ctx.font = '28px sans-serif';
+            ctx.fillStyle = 'white';
+            ctx.fillText(selectedSkin, playerCats[0].x + 27, playerCats[0].y + 20);
+            // Враг
+            ctx.fillStyle = '#f5a65b';
+            ctx.fillRect(enemyCats[0].x, enemyCats[0].y, 70, 26);
+            ctx.fillText('😾', enemyCats[0].x + 27, enemyCats[0].y + 20);
+            // Шайба
+            ctx.fillStyle = '#2f2e2e';
+            ctx.beginPath();
+            ctx.arc(puck.x, puck.y, 9, 0, Math.PI*2);
+            ctx.fill();
+        }
+        
+        function gameLoop() {
+            updateGame();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function startGame(mode) {
+            currentMode = mode;
+            gameActive = true;
+            playerGoals = 0;
+            enemyGoals = 0;
+            updateScores();
+            resetPuck();
+            document.getElementById('mainMenu').classList.add('hidden');
+            document.getElementById('gameContainer').classList.remove('hidden');
+        }
+        
+        function backToMenu() {
+            document.getElementById('mainMenu').classList.remove('hidden');
+            document.getElementById('gameContainer').classList.add('hidden');
+        }
+        
+        function resetMatch() {
+            playerGoals = 0;
+            enemyGoals = 0;
+            gameActive = true;
+            updateScores();
+            resetPuck();
+        }
+        
+        // ========== ИНИЦИАЛИЗАЦИЯ ==========
+        function init() {
+            // Загрузка ELO
+            const savedElo = localStorage.getItem('cat_hockey_elo');
+            if (savedElo) currentElo = parseInt(savedElo);
+            document.getElementById('menuElo').innerText = currentElo;
+            
+            // Скины
+            document.querySelectorAll('.skin-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    document.querySelectorAll('.skin-card').forEach(c => c.style.border = 'none');
+                    card.style.border = '2px solid #ffd966';
+                    selectedSkin = card.innerText[0];
+                });
+            });
+            document.querySelector('.skin-card').style.border = '2px solid #ffd966';
+            
+            // Кнопки
+            document.querySelectorAll('[data-mode]').forEach(btn => {
+                btn.addEventListener('click', () => startGame(btn.getAttribute('data-mode')));
+            });
+            document.getElementById('fonkControlBtn').addEventListener('click', toggleFonk);
+            document.getElementById('backToMenuBtn').addEventListener('click', backToMenu);
+            document.getElementById('resetMatchBtn').addEventListener('click', resetMatch);
+            
+            canvas.addEventListener('mousemove', (e) => handleMove(e.clientX));
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches[0]) handleMove(e.touches[0].clientX);
+            });
+            
+            startVisualizer();
+            startShake();
+            gameLoop();
+        }
+        
+        init();
+    </script>
+</body>
+          </html>
