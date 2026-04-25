@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CAT HOCKEY 1.2 — ПОЛНАЯ ВЕРСИЯ</title>
+    <style>
+        * { user-select: none; touch-action: none; box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a2f3a; min-height: 100vh; display: flex; justify-content: center; align-items: center; font-family: monospace; padding: 20px; }
+        .main-menu, .game-container { background: #124252; border-radius: 48px; padding: 20px; max-width: 1000px; width: 100%; box-shadow: 0 10px 30px black; }
+        .game-title { font-size: 2rem; color: #ffd966; text-align: center; margin-bottom: 15px; }
+        .menu-buttons { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 20px 0; }
+        button { background: #f9b43a; border: none; padding: 8px 20px; border-radius: 40px; font-weight: bold; cursor: pointer; font-family: monospace; }
+        .shop-panel, .skins-panel, .track-panel { background: #0d3b48; border-radius: 30px; padding: 15px; margin-top: 15px; }
+        .valuta { display: flex; justify-content: space-between; margin-bottom: 15px; color: #ffd966; font-weight: bold; }
+        .hidden { display: none; }
+        canvas { width: 100%; border-radius: 32px; background: #b9e6f5; cursor: none; }
+        .stats { display: flex; justify-content: space-between; margin-top: 10px; color: white; }
+        .skin-card, .track-btn { display: inline-block; background: #1f5f6e; padding: 6px 12px; border-radius: 30px; cursor: pointer; margin: 4px; color: white; }
+        .skin-card.selected, .track-btn.active { background: #ffb347; color: black; }
+        @media (max-width: 600px) { button { padding: 6px 12px; font-size: 0.8rem; } .game-title { font-size: 1.5rem; } }
+    </style>
+</head>
+<body>
+<div id="mainMenu" class="main-menu">
+    <div class="game-title">🏒 КОТОХОККЕЙ 1.2 — ПОЛНАЯ ВЕРСИЯ</div>
+    <div class="valuta">
+        <span>🥔 БАЛЛЫ КОПАТЫЧА: <span id="kopatychPoints">0</span></span>
+        <span>💀 ПЛОТЬ ДЕМОНА: <span id="ganniPoints">0</span></span>
+        <span>🏆 ELO: <span id="elo">1200</span></span>
+    </div>
+    <div class="menu-buttons">
+        <button id="playBtn">🎮 ИГРАТЬ</button>
+        <button id="shopBtn">🛒 МАГАЗИН</button>
+    </div>
+    <div id="shopPanel" class="shop-panel hidden">
+        <h3 style="color:#ffd966">МАГАЗИН (КОПАТЫЧ + МАКИМА)</h3>
+        <button id="buyShield">📚 ЩИТ (учебник) — 2🥔</button>
+        <button id="buyChainsaw">⛓️ РЕЖИМ БЕНЗОПИЛА — 3🥔</button>
+        <button id="buyWaterKatana">💧 КАТАНА ВОДЫ (ГЛЫБА) — 7💀</button>
+        <button id="exchangeBtn">🔄 ОБМЕН: 1🥔 ↔ 3💀</button>
+        <button id="closeShopBtn">❌ ЗАКРЫТЬ</button>
+    </div>
+    <div class="track-panel">
+        <div style="color:#ffd966">🎵 ФОНКИ:</div>
+        <div id="trackButtons"></div>
+        <button id="fonkToggleBtn">🔊 ФОНК: ВКЛ</button>
+    </div>
+    <div class="skins-panel">
+        <div style="color:#ffd966">😺 СКИНЫ:</div>
+        <div id="skins">
+            <span class="skin-card" data-skin="🐱">🐱 Котик</span>
+            <span class="skin-card" data-skin="🃏">🃏 Джокер</span>
+            <span class="skin-card" data-skin="🧸">🧸 Буба</span>
+        </div>
+        <button id="textureBtn" style="margin-top:8px;">🎨 ЗАГРУЗИТЬ ТЕКСТУРЫ (F1)</button>
+    </div>
+</div>
+<div id="gameContainer" class="game-container hidden">
+    <canvas id="gameCanvas" width="800" height="500"></canvas>
+    <div class="stats">
+        <button id="backToMenuBtn">🏠 МЕНЮ</button>
+        <span>🐱 <span id="playerScore">0</span> : <span id="enemyScore">0</span> 🤖</span>
+        <button id="resetMatchBtn">🔄 СБРОС</button>
+    </div>
+</div>
+<script>
+    // ========== ВАЛЮТЫ, ELO, БАФФЫ ==========
+    let kopatych = localStorage.getItem('kopatych') ? parseInt(localStorage.getItem('kopatych')) : 3;
+    let ganni = localStorage.getItem('ganni') ? parseInt(localStorage.getItem('ganni')) : 3;
+    let elo = localStorage.getItem('elo') ? parseInt(localStorage.getItem('elo')) : 1200;
+    let selectedSkin = localStorage.getItem('skin') || '🐱';
+    let activeBuff = { shield: false, chainsaw: false, waterKatana: false };
+    let gameActive = false;
+    let playerScore = 0, enemyScore = 0;
+    let playerX = 365, enemyX = 365;
+    let puck = { x: 400, y: 250, vx: 2.2, vy: -2.2, r: 9 };
+    const WIN_GOALS = 3;
+    function updateUI() {
+        document.getElementById('kopatychPoints').innerText = kopatych;
+        document.getElementById('ganniPoints').innerText = ganni;
+        document.getElementById('elo').innerText = elo;
+        localStorage.setItem('kopatych', kopatych);
+        localStorage.setItem('ganni', ganni);
+        localStorage.setItem('elo', elo);
+        localStorage.setItem('skin', selectedSkin);
+    }
+    function addKopatych() { kopatych++; updateUI(); alert('🏆 +1 Балл Копатыча!'); }
+    function addWinElo() { elo += 25; updateUI(); alert('🏆 +25 ELO!'); }
+    function addLossElo() { elo = Math.max(800, elo - 20); updateUI(); alert('💔 -20 ELO'); }
+
+    // ========== МАГАЗИН ==========
+    document.getElementById('shopBtn').onclick = () => document.getElementById('shopPanel').classList.toggle('hidden');
+    document.getElementById('closeShopBtn').onclick = () => document.getElementById('shopPanel').classList.add('hidden');
+    document.getElementById('buyShield').onclick = () => { if (kopatych >= 2) { kopatych -= 2; activeBuff.shield = true; alert('📚 Щит активен!'); updateUI(); } else alert('Не хватает баллов!'); };
+    document.getElementById('buyChainsaw').onclick = () => { if (kopatych >= 3) { kopatych -= 3; activeBuff.chainsaw = true; alert('⛓️ РЕЖИМ БЕНЗОПИЛА!'); updateUI(); } else alert('Не хватает баллов!'); };
+    document.getElementById('buyWaterKatana').onclick = () => { if (ganni >= 7) { ganni -= 7; activeBuff.waterKatana = true; alert('💧 Катана Воды готова!'); updateUI(); } else alert('Нужно 7 Плоти!'); };
+    document.getElementById('exchangeBtn').onclick = () => {
+        let choice = prompt('1 — БК → Плоть (1→3)\n2 — Плоть → БК (3→1)');
+        if (choice === '1' && kopatych >= 1) { kopatych--; ganni += 3; updateUI(); alert('Обмен!'); }
+        else if (choice === '2' && ganni >= 3) { ganni -= 3; kopatych++; updateUI(); alert('Обмен!'); }
+        else alert('Не хватает!');
+    };
+
+    // ========== ФОНКИ ==========
+    const TRACKS = {
+        guwet: '033109582300.mp3',
+        montagem: 'n0m1ko%2C%20NVXUS%20%E2%80%94%20MONTAGEM%20PEGADAS%20(www.lightaudio.ru)%20(1).mp3',
+        montagemAtracao: 'Blxze! , DJ LXILL, NVXUS — MONTAGEM ATRAÇÃO (www.lightaudio.ru).mp3',
+        sequencia: 'Elias_EE_-_SEQUNCIA_DO_MADRUGADA_ALT_VER_-_SLOWED_79679509.mp3',
+        granola: 'NVXUS, AzuriusS, BLXZE! , DJ LXILL — MONTAGEM GRANOLA 2 (www.lightaudio.ru).mp3'
+    };
+    let currentTrack = 'guwet';
+    let audio = new Audio();
+    let fonkEnabled = true;
+    function loadTrack(trackId) { if (!TRACKS[trackId]) return; let wasPlaying = fonkEnabled && !audio.paused; audio.pause(); audio = new Audio(TRACKS[trackId]); audio.loop = true; audio.volume = 0.7; if (wasPlaying && fonkEnabled) audio.play(); currentTrack = trackId; document.querySelectorAll('.track-btn').forEach(btn => btn.classList.remove('active')); document.querySelector(`.track-btn[data-track="${trackId}"]`).classList.add('active'); }
+    function toggleFonk() { if (fonkEnabled) { audio.pause(); fonkEnabled = false; document.getElementById('fonkToggleBtn').innerHTML = '🔇 ФОНК: ВЫКЛ'; } else { audio.play(); fonkEnabled = true; document.getElementById('fonkToggleBtn').innerHTML = '🔊 ФОНК: ВКЛ'; } }
+    function firstPlay() { if (fonkEnabled && audio.paused) audio.play(); document.removeEventListener('click', firstPlay); document.removeEventListener('touchstart', firstPlay); }
+    document.addEventListener('click', firstPlay); document.addEventListener('touchstart', firstPlay);
+    let trackContainer = document.getElementById('trackButtons');
+    for (let [id, url] of Object.entries(TRACKS)) { let btn = document.createElement('span'); btn.className = 'track-btn'; btn.setAttribute('data-track', id); btn.innerText = id.toUpperCase(); btn.onclick = () => loadTrack(id); trackContainer.appendChild(btn); }
+    document.getElementById('fonkToggleBtn').onclick = toggleFonk;
+    loadTrack('guwet');
+
+    // ========== ЗВУКИ ==========
+    const hitSound = new Audio('Udar.mp3');
+    const whistleSound = new Audio('svistok.mp3');
+    const crowdSound = new Audio('tribuna.mp3');
+    crowdSound.loop = true; crowdSound.volume = 0.3;
+    function playHit() { if (gameActive) { hitSound.currentTime = 0; hitSound.play().catch(e=>{}); } }
+    function playWhistle() { if (gameActive) { whistleSound.currentTime = 0; whistleSound.play().catch(e=>{}); } }
+    function startCrowd() { if (gameActive) crowdSound.play().catch(e=>{}); }
+    function stopCrowd() { crowdSound.pause(); crowdSound.currentTime = 0; }
+
+    // ========== СКИНЫ ==========
+    document.querySelectorAll('.skin-card').forEach(card => { card.onclick = () => { document.querySelectorAll('.skin-card').forEach(c => c.classList.remove('selected')); card.classList.add('selected'); selectedSkin = card.getAttribute('data-skin'); updateUI(); }; if (card.getAttribute('data-skin') === selectedSkin) card.classList.add('selected'); });
+
+    // ========== ТЕКСТУРЫ (КОТ, ВРАГ, ЛЁД) ==========
+    let customIce = localStorage.getItem('customIce');
+    let customCat = localStorage.getItem('customCat');
+    let customEnemy = localStorage.getItem('customEnemy');
+    const defaultIce = new Image(); defaultIce.src = 'https://raw.githubusercontent.com/Artiktopik11/cat_hokey/main/game/of-ice-hockey-rink-textures-blue-ice-ice-rink-top-view-illustration-background-vector.jpg';
+    const iceImg = new Image(); if(customIce) iceImg.src = customIce;
+    const catImg = new Image(); if(customCat) catImg.src = customCat;
+    const enemyImg = new Image(); if(customEnemy) enemyImg.src = customEnemy;
+    function openTextureMenu() {
+        let modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:999';
+        modal.innerHTML = `<div style="background:#124252;padding:20px;border-radius:30px;text-align:center;color:white;"><h3>📁 ЗАГРУЗИТЬ ТЕКСТУРЫ</h3>
+        <label>🧊 ЛЁД: <input type="file" id="iceFile" accept="image/*"></label><br>
+        <label>🐱 КОТ: <input type="file" id="catFile" accept="image/*"></label><br>
+        <label>👾 ВРАГ: <input type="file" id="enemyFile" accept="image/*"></label><br>
+        <button id="resetTextures">СБРОСИТЬ</button> <button id="closeTexture">ЗАКРЫТЬ</button></div>`;
+        document.body.appendChild(modal);
+        document.getElementById('iceFile').onchange = (e) => { let f=e.target.files[0]; if(f){let r=new FileReader(); r.onload=(ev)=>{localStorage.setItem('customIce', ev.target.result); iceImg.src=ev.target.result; alert('Лёд загружен!');}; r.readAsDataURL(f);} };
+        document.getElementById('catFile').onchange = (e) => { let f=e.target.files[0]; if(f){let r=new FileReader(); r.onload=(ev)=>{localStorage.setItem('customCat', ev.target.result); catImg.src=ev.target.result; alert('Кот загружен!');}; r.readAsDataURL(f);} };
+        document.getElementById('enemyFile').onchange = (e) => { let f=e.target.files[0]; if(f){let r=new FileReader(); r.onload=(ev)=>{localStorage.setItem('customEnemy', ev.target.result); enemyImg.src=ev.target.result; alert('Враг загружен!');}; r.readAsDataURL(f);} };
+        document.getElementById('resetTextures').onclick = () => { localStorage.removeItem('customIce'); localStorage.removeItem('customCat'); localStorage.removeItem('customEnemy'); location.reload(); };
+        document.getElementById('closeTexture').onclick = () => modal.remove();
+    }
+    document.getElementById('textureBtn').onclick = openTextureMenu;
+    document.addEventListener('keydown', (e) => { if(e.key === 'F1') openTextureMenu(); });
+
+    // ========== ФИЗИКА ИГРЫ ==========
+    const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d'); canvas.width = 800; canvas.height = 500;
+    function resetPuck() { puck = { x: 400, y: 250, vx: (Math.random() - 0.5)*4, vy: (Math.random() - 0.5)*3, r: 9 }; }
+    function updateGame() {
+        if (!gameActive) return;
+        puck.x += puck.vx; puck.y += puck.vy;
+        if (puck.x - puck.r <= 0 || puck.x + puck.r >= 800) { puck.vx = -puck.vx; playHit(); }
+        if (puck.y - puck.r <= 0) { puck.vy = Math.abs(puck.vy); playHit(); }
+        if (puck.y + puck.r >= 485) { if(activeBuff.shield) { activeBuff.shield = false; alert('📚 Щит заблокировал гол!'); } else { enemyScore++; playWhistle(); updateUIScore(); resetPuck(); } }
+        if (puck.y - puck.r <= 15) { playerScore++; playWhistle(); updateUIScore(); resetPuck(); }
+        if (puck.y + puck.r >= 450 && puck.x + puck.r >= playerX && puck.x - puck.r <= playerX + 70) {
+            let angle = ((puck.x - playerX) / 70 - 0.5)*1.6;
+            let sp = Math.hypot(puck.vx, puck.vy)*1.08;
+            puck.vx = Math.cos(angle)*sp; puck.vy = -Math.abs(Math.sin(angle)*sp); puck.y = 449 - puck.r; playHit();
+            if(activeBuff.waterKatana && Math.random()<0.3) { enemyX = Math.min(Math.max(enemyX+30,10),720); alert('💧 Катана Воды испугала врага!'); }
+        }
+        let target = puck.x - 35; target = Math.min(Math.max(target,10),720);
+        enemyX += (target - enemyX)*0.09;
+        if (puck.y - puck.r <= 51 && puck.y + puck.r >= 25 && puck.x + puck.r >= enemyX && puck.x - puck.r <= enemyX + 70) {
+            let angle = ((puck.x - enemyX) / 70 - 0.5)*1.5;
+            let sp = Math.hypot(puck.vx, puck.vy)*1.05;
+            puck.vx = Math.cos(angle)*sp; puck.vy = Math.abs(Math.sin(angle)*sp); puck.y = 52; playHit();
+        }
+    }
+    function updateUIScore() {
+        document.getElementById('playerScore').innerText = playerScore;
+        document.getElementById('enemyScore').innerText = enemyScore;
+        if(playerScore >= WIN_GOALS) { gameActive=false; addKopatych(); addWinElo(); stopCrowd(); alert('🎉 ПОБЕДА!'); document.getElementById('backToMenuBtn').click(); }
+        else if(enemyScore >= WIN_GOALS) { gameActive=false; addLossElo(); stopCrowd(); alert('😭 ПОРАЖЕНИЕ...'); document.getElementById('backToMenuBtn').click(); }
+    }
+    function draw() {
+        ctx.clearRect(0,0,800,500);
+        if(customIce && iceImg.complete) ctx.drawImage(iceImg,0,0,800,500);
+        else if(defaultIce.complete) ctx.drawImage(defaultIce,0,0,800,500);
+        else { ctx.fillStyle='#aacfaa'; ctx.fillRect(0,0,800,500); }
+        if(customCat && catImg.complete) ctx.drawImage(catImg, playerX,450,70,26);
+        else { ctx.fillStyle='#4a704a'; ctx.fillRect(playerX,450,70,26); ctx.font='26px monospace'; ctx.fillStyle='#f9f2cf'; ctx.fillText(selectedSkin, playerX+22,470); }
+        if(customEnemy && enemyImg.complete) ctx.drawImage(enemyImg, enemyX,25,70,26);
+        else { ctx.fillStyle='#b57a4a'; ctx.fillRect(enemyX,25,70,26); ctx.fillStyle='#2f2a1f'; ctx.fillText('😾', enemyX+24,48); }
+        if(activeBuff.chainsaw) ctx.fillStyle='#ff4444';
+        else ctx.fillStyle='#2a3a2a';
+        ctx.beginPath(); ctx.arc(puck.x, puck.y, 8, 0, Math.PI*2); ctx.fill();
+    }
+    function loop() { updateGame(); draw(); requestAnimationFrame(loop); }
+    loop();
+
+    function startGame() { gameActive = true; playerScore = 0; enemyScore = 0; updateUIScore(); resetPuck(); playerX = 365; enemyX = 365; startCrowd(); document.getElementById('mainMenu').classList.add('hidden'); document.getElementById('gameContainer').classList.remove('hidden'); }
+    function backToMenu() { gameActive=false; stopCrowd(); document.getElementById('mainMenu').classList.remove('hidden'); document.getElementById('gameContainer').classList.add('hidden'); activeBuff = { shield: false, chainsaw: false, waterKatana: false }; updateUI(); }
+    function resetMatch() { playerScore = 0; enemyScore = 0; updateUIScore(); resetPuck(); gameActive = true; }
+    function move(e) { if(!gameActive) return; let rect = canvas.getBoundingClientRect(); let x = (e.clientX - rect.left)*(800/rect.width); playerX = Math.min(Math.max(x-35,10),720); }
+    canvas.addEventListener('mousemove', move); canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); if(e.touches[0]) move(e.touches[0]); });
+    document.getElementById('playBtn').onclick = startGame;
+    document.getElementById('backToMenuBtn').onclick = backToMenu;
+    document.getElementById('resetMatchBtn').onclick = resetMatch;
+    updateUI();
+</script>
+</body>
+  </html>
